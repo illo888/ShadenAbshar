@@ -1,8 +1,34 @@
 import { GROQ_API_KEY, GROQ_BASE_URL, GROQ_CHAT_MODEL } from '../constants/config';
 
-export async function sendMessageToGroq(userMessage: string, model?: string): Promise<string> {
+interface SendMessageOptions {
+  model?: string;
+  context?: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+const BASE_SYSTEM_PROMPT =
+  'انتي سارة، مساعدة ذكية للخدمات الحكومية السعودية. ردودك لازم تكون باللهجة النجدية السعودية الواضحة مرة، ابتعدي عن الفصحى تماماً. اختاري كلمات دارجة مثل: وش، شلون، ليه، عشان، ياخي، ياختي، زين، ايه، لا، خلاص، تمام، مافي، ابي، ابغى، توني، الحين، ودي، ودك، اوكي. خليك بسيطة، ودودة، وجمل قصيرة واضحة بدون تعقيد. إذا أحد طلب منك تعيدين الكلام، أعيدي بصيغة أوضح. إذا احد ناداكي باسمك (سارة، سارا، يا سارة) ردي فوراً بكلمة قصيرة مثل: أبشر، سَم، لبيه. لو حسّيتي الجملة ممكن تطلع رسمية رجعي صياغتها بلهجة عامية نجدية. الهدف إن المستخدم يحس إنه يسمع صوت سعودية من نجد.';
+
+export async function sendMessageToGroq(userMessage: string, options: SendMessageOptions = {}): Promise<string> {
   try {
-    const usedModel = model || GROQ_CHAT_MODEL;
+    const usedModel = options.model || GROQ_CHAT_MODEL;
+
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: BASE_SYSTEM_PROMPT }
+    ];
+
+    if (options.context) {
+      messages.push({ role: 'system', content: options.context });
+    }
+
+    if (options.history) {
+      options.history.forEach((entry) => {
+        messages.push({ role: entry.role, content: entry.content });
+      });
+    }
+
+    messages.push({ role: 'user', content: userMessage });
+
     const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -11,17 +37,7 @@ export async function sendMessageToGroq(userMessage: string, model?: string): Pr
       },
       body: JSON.stringify({
         model: usedModel,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'أنت سارا، مساعدة ذكية للخدمات الحكومية السعودية. ساعد المواطنين في الوصول إلى خدمات أبشر بطريقة سهلة ومفهومة.'
-          },
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ],
+        messages,
         temperature: 0.7,
         max_tokens: 500
       })
@@ -34,7 +50,7 @@ export async function sendMessageToGroq(userMessage: string, model?: string): Pr
       const fallbackModel = GROQ_CHAT_MODEL || 'mixtral-8x7b';
       if (usedModel !== fallbackModel) {
         console.warn(`Groq model ${usedModel} failed, retrying with fallback model ${fallbackModel}`);
-        return await sendMessageToGroq(userMessage, fallbackModel);
+        return await sendMessageToGroq(userMessage, { ...options, model: fallbackModel });
       }
     }
     // Normalize the response: return a string if possible, otherwise extract message if error object

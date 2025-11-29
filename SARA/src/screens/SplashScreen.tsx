@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/colors';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,12 +12,19 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onFinish }: SplashScreenProps) {
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.3);
-  const slideUp1 = new Animated.Value(50);
-  const slideUp2 = new Animated.Value(80);
-  const slideUp3 = new Animated.Value(110);
-  const particleAnims = Array.from({ length: 20 }, () => new Animated.Value(0));
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const slideUp1 = useRef(new Animated.Value(50)).current;
+  const slideUp2 = useRef(new Animated.Value(80)).current;
+  const slideUp3 = useRef(new Animated.Value(110)).current;
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const taglineTranslate = useRef(new Animated.Value(20)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const particleAnims = useRef(Array.from({ length: 20 }, () => new Animated.Value(0))).current;
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%']
+  });
 
   useEffect(() => {
     // Staggered entry animation
@@ -71,8 +78,36 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       ).start();
     });
 
+    Animated.sequence([
+      Animated.delay(600),
+      Animated.parallel([
+        Animated.timing(taglineOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true
+        }),
+        Animated.timing(taglineTranslate, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true
+        })
+      ])
+    ]).start();
+
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: 2600,
+      easing: Easing.out(Easing.exp),
+      useNativeDriver: false
+    }).start();
+
     const timer = setTimeout(() => {
       Animated.parallel([
+        Animated.timing(taglineOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true
+        }),
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 500,
@@ -143,6 +178,22 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         <SaraLogo size={160} animated={true} />
       </Animated.View>
 
+      <Animated.View
+        style={[
+          styles.taglineWrapper,
+          {
+            opacity: taglineOpacity,
+            transform: [{ translateY: taglineTranslate }]
+          }
+        ]}
+      >
+        <Text style={styles.taglinePrimary}>نجهز منصاتك الحكومية</Text>
+        <Text style={styles.taglineSecondary}>سارة تفعّل OTP، ترتب مواعيد أبشر، وتجهز لك كل الخدمات قبل ما تبدأ</Text>
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+        </View>
+      </Animated.View>
+
       {/* Bottom elements */}
       <Animated.View
         style={[
@@ -182,6 +233,37 @@ const styles = StyleSheet.create({
     bottom: 60,
     alignItems: 'center',
     gap: 12
+  },
+  taglineWrapper: {
+    alignItems: 'center',
+    paddingHorizontal: 40
+  },
+  taglinePrimary: {
+    fontSize: 22,
+    fontFamily: 'Tajawal_700Bold',
+    color: '#F9FAFB',
+    textAlign: 'center'
+  },
+  taglineSecondary: {
+    fontSize: 13,
+    fontFamily: 'Tajawal_400Regular',
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20
+  },
+  progressTrack: {
+    width: width * 0.6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginTop: 16,
+    overflow: 'hidden'
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#FDE68A'
   },
   badge: {
     flexDirection: 'row-reverse',

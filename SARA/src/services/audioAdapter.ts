@@ -5,23 +5,81 @@
 // We use dynamic require() style to avoid static bundling errors if a package does not exist.
 
 let AudioImpl: any = null;
+let RecordingAudioImpl: any = null;
+
 try {
-  // Prefer the new package
+  // Prefer the new package for playback if available
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   AudioImpl = require('expo-audio');
 } catch (err) {
-  try {
-    // fallback to expo-av
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    AudioImpl = require('expo-av');
-  } catch (err2) {
-    // No implementation available
-    AudioImpl = null;
+  // Ignore; we'll try expo-av below
+}
+
+try {
+  // Always attempt to load expo-av to ensure recording support
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const expoAV = require('expo-av');
+  const resolvedAV = expoAV?.Audio || expoAV || null;
+
+  RecordingAudioImpl = resolvedAV;
+
+  if (!AudioImpl) {
+    AudioImpl = resolvedAV;
+  }
+} catch (err) {
+  if (!AudioImpl) {
     console.warn('audioAdapter: no audio implementation found; ensure expo-audio or expo-av is installed.');
+    AudioImpl = null;
   }
 }
 
-export const Audio = AudioImpl?.Audio || AudioImpl || null;
+export const Audio = AudioImpl?.Audio || AudioImpl || RecordingAudioImpl || null;
+
+function getRecordingAPI() {
+  return RecordingAudioImpl || Audio;
+}
+
+function buildFallbackRecordingOptions() {
+  return {
+    isMeteringEnabled: true,
+    android: {
+      extension: '.m4a',
+      outputFormat: 2, // MPEG_4
+      audioEncoder: 3, // AAC
+      sampleRate: 44100,
+      numberOfChannels: 2,
+      bitRate: 128000
+    },
+    ios: {
+      extension: '.m4a',
+      audioQuality: 127,
+      outputFormat: 'mpeg4aac',
+      sampleRate: 44100,
+      numberOfChannels: 2,
+      bitRate: 128000,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false
+    }
+  };
+}
+
+export function getRecordingOptions() {
+  const RecordingAPI = getRecordingAPI();
+  if (!RecordingAPI) return buildFallbackRecordingOptions();
+
+  const presets =
+    RecordingAPI?.RecordingOptionsPresets || RecordingAPI?.Audio?.RecordingOptionsPresets;
+
+  if (presets?.HIGH_QUALITY) {
+    return {
+      ...presets.HIGH_QUALITY,
+      isMeteringEnabled: true
+    };
+  }
+
+  return buildFallbackRecordingOptions();
+}
 
 // Small helper to create an Audio.Sound from a base64 audio (mp3/wav) string
 export async function createSoundFromBase64(base64: string, format: string = 'mp3') {
@@ -91,15 +149,16 @@ export function setOnPlaybackStatusUpdate(sound: any, handler: (status: any) => 
 
 // Recording utilities
 export async function requestRecordingPermissions() {
-  if (!Audio) return { status: 'denied' };
+  const RecordingAPI = getRecordingAPI();
+  if (!RecordingAPI) return { status: 'denied' };
   try {
     // audio permission call differs between modules. For backwards compat we attempt both.
-    if (Audio.requestPermissionsAsync) {
-      return await Audio.requestPermissionsAsync();
+    if (RecordingAPI.requestPermissionsAsync) {
+      return await RecordingAPI.requestPermissionsAsync();
     }
 
-    if (Audio.getPermissionsAsync) {
-      return await Audio.getPermissionsAsync();
+    if (RecordingAPI.getPermissionsAsync) {
+      return await RecordingAPI.getPermissionsAsync();
     }
 
     // Some audio modules expose a different permission flow, return granted for demo
@@ -111,10 +170,11 @@ export async function requestRecordingPermissions() {
 }
 
 export async function setAudioModeAsync(opts: any) {
-  if (!Audio) return;
+  const RecordingAPI = getRecordingAPI();
+  if (!RecordingAPI) return;
   try {
-    if (Audio.setAudioModeAsync) {
-      await Audio.setAudioModeAsync(opts);
+    if (RecordingAPI.setAudioModeAsync) {
+      await RecordingAPI.setAudioModeAsync(opts);
     }
   } catch (err) {
     console.warn('audioAdapter.setAudioModeAsync error', err);
@@ -122,13 +182,26 @@ export async function setAudioModeAsync(opts: any) {
 }
 
 export function createRecording() {
-  if (!Audio) throw new Error('Audio module not available');
+  const RecordingAPI = getRecordingAPI();
+  if (!RecordingAPI) throw new Error('Audio module not available');
   // return a new Recording instance
   try {
-    return new (Audio.Recording as any)();
+    if (RecordingAPI.Recording) {
+      return new RecordingAPI.Recording();
+    }
+
+    if (RecordingAPI?.Audio?.Recording) {
+      return new RecordingAPI.Audio.Recording();
+    }
+
+    if (AudioImpl && AudioImpl.Recording) {
+      return new AudioImpl.Recording();
+    }
+
+    throw new Error('Recording class not found in audio implementation');
   } catch (err) {
     console.warn('audioAdapter.createRecording failed', err);
-    return null;
+    throw new Error('Failed to create recording');
   }
 }
 
@@ -140,5 +213,6 @@ export default {
   setOnPlaybackStatusUpdate,
   requestRecordingPermissions,
   setAudioModeAsync,
-  createRecording
+  createRecording,
+  getRecordingOptions
 };

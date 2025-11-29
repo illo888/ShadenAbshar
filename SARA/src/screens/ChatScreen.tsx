@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Alert } from 'react-native';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/colors';
@@ -12,50 +12,125 @@ import { MaterialIcons } from '@expo/vector-icons';
 import audioAdapter from '../services/audioAdapter';
 import { Message } from '../types';
 import { AIWave } from '../components/AIWave';
+import { useUser } from '../context/UserContext';
+import { buildAssistantContext } from '../constants/assistantProfiles';
+import { useOtp } from '../context/OtpContext';
 
 export function ChatScreen() {
+  const { userData } = useUser();
+  const assistantProfile = useMemo(() => buildAssistantContext(userData), [userData]);
+  const assistantContext = assistantProfile.context;
+  const suggestions = assistantProfile.suggestions;
+  const greeting = assistantProfile.greeting;
+  const { enabled: otpEnabled, messages: otpMessages } = useOtp();
+
+  const otpContext = useMemo(() => {
+    if (!otpEnabled || otpMessages.length === 0) return '';
+    const lines = otpMessages.slice(0, 5).map((msg, index) => {
+      const label = index === 0 ? 'الأحدث' : `رمز ${index + 1}`;
+      return `${label}: ${msg.code} من ${msg.sender} لغرض ${msg.purpose} (الوقت: ${msg.time})`;
+    });
+    return `سجل OTP الأخيرة:
+${lines.join('\n')}
+
+اذا طلب المستخدم رمز التحقق، أعطه الرقم الأحدث بالأرقام من غير تقسيم انجليزي واذكر الجهة والغرض باختصار.`;
+  }, [otpEnabled, otpMessages]);
+
+  const combinedContext = useMemo(() => {
+    if (!otpContext) return assistantContext;
+    return `${assistantContext}\n\n${otpContext}`;
+  }, [assistantContext, otpContext]);
+
+  const displaySuggestions = useMemo(() => {
+    if (!otpEnabled) return suggestions;
+    const otpPrompt = 'قولي وش آخر رمز تحقق وصلني';
+    if (suggestions.includes(otpPrompt)) return suggestions;
+    return [otpPrompt, ...suggestions];
+  }, [suggestions, otpEnabled]);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
-  const [autoPlay, setAutoPlay] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [waveState, setWaveState] = useState<'idle' | 'welcoming' | 'answering' | 'thinking' | 'listening'>('idle');
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const flatRef = useRef<any>(null);
   const soundRef = useRef<any>(null);
-  const [playingId, setPlayingId] = useState<number | null>(null);
+  const hasWelcomedRef = useRef(false);
+  const lastOtpAnnouncedRef = useRef<number | null>(null);
+
+  const latestAssistantMessage = useMemo(
+    () => messages.find((msg) => msg.role === 'assistant'),
+    [messages]
+  );
+
+  const canSpeak = Boolean(
+    latestAssistantMessage && typeof latestAssistantMessage.text === 'string' && latestAssistantMessage.text.trim().length > 0
+  );
 
   useEffect(() => {
-    // Welcome message when chat opens
+    if (hasWelcomedRef.current) return;
     setWaveState('welcoming');
     const welcomeMsg: Message = {
       id: Date.now(),
       role: 'assistant',
-      text: 'مرحباً بك! أنا سارة، مساعدتك الذكية للخدمات الحكومية السعودية. كيف يمكنني مساعدتك اليوم؟'
+      text: greeting || 'هلا! انا سارة، وش تحب ننجزه اليوم؟'
     };
     setMessages([welcomeMsg]);
+    hasWelcomedRef.current = true;
     setTimeout(() => setWaveState('idle'), 3000);
-  }, []);
+  }, [greeting]);
 
-  async function sendText() {
-    if (!text.trim() || isLoading) return;
-    const userMsg: Message = { id: Date.now(), role: 'user', text: text.trim() };
+  useEffect(() => {
+    if (!otpEnabled || otpMessages.length === 0 || !hasWelcomedRef.current) {
+      return;
+    }
+
+    const latest = otpMessages[0];
+    if (!latest || lastOtpAnnouncedRef.current === latest.id) {
+      return;
+    }
+
+    lastOtpAnnouncedRef.current = latest.id;
+    const announcement: Message = {
+      id: Date.now(),
+      role: 'assistant',
+      text: `📲 **رمز جديد من ${latest.sender}:** \`${latest.code}\`\nالغرض: ${latest.purpose}\nالوقت: ${latest.time}`
+    };
+
+    setMessages((prev) => [announcement, ...prev]);
+
+    const spokenCode = latest.code.split('').join(' ');
+    playTTS(`جاك رمز جديد من ${latest.sender}. الرقم هو ${spokenCode}.`);
+  }, [otpEnabled, otpMessages]);
+
+  async function handleUserMessage(rawText: string) {
+    const content = rawText.trim();
+    if (!content || isLoading) return;
+
+    const userMsg: Message = { id: Date.now(), role: 'user', text: content };
+    const historySource = [userMsg, ...messages]
+      .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+      .slice(0, 6)
+      .reverse()
+      .map((msg) => ({
+        role: msg.role as 'user' | 'assistant',
+        content: typeof msg.text === 'string' ? msg.text : JSON.stringify(msg.text)
+      }));
+
     setMessages((m) => [userMsg, ...m]);
-    const userText = text.trim();
-    setText('');
     setIsLoading(true);
     setWaveState('thinking');
 
     try {
-      const reply = await sendMessageToGroq(userText);
+      const reply = await sendMessageToGroq(content, {
+        context: combinedContext,
+        history: historySource
+      });
       setWaveState('answering');
       const aiMsg: Message = { id: Date.now() + 1, role: 'assistant', text: reply };
       setMessages((m) => [aiMsg, ...m]);
-      
-      if (autoPlay) {
-        playTTS(aiMsg.text, aiMsg.id);
-      } else {
-        setTimeout(() => setWaveState('idle'), 2000);
-      }
+
+      setTimeout(() => setWaveState('idle'), 1500);
     } catch (error) {
       console.error('Error sending message:', error);
       setWaveState('idle');
@@ -70,31 +145,46 @@ export function ChatScreen() {
     }
   }
 
-  async function playTTS(textToPlay: string, id?: number) {
+  async function sendText() {
+    if (!text.trim() || isLoading) return;
+    const currentText = text;
+    setText('');
+    await handleUserMessage(currentText);
+  }
+
+  function handleSuggestionPress(prompt: string) {
+    if (isLoading) return;
+    handleUserMessage(prompt);
+  }
+
+  async function playTTS(textToPlay: string) {
     if (soundRef.current) {
       try {
-        await soundRef.current.stopAsync();
-      } catch (_) {}
-      soundRef.current = null;
-      setPlayingId(null);
+        await audioAdapter.stopSound(soundRef.current);
+      } catch (err) {
+        console.warn('Failed to stop existing sound before TTS', err);
+      } finally {
+        soundRef.current = null;
+      }
     }
-    
+
     try {
+      setWaveState('answering');
       const sound = await convertTextToSpeech(textToPlay);
       if (sound) {
         soundRef.current = sound;
-        setPlayingId(id ?? null);
         audioAdapter.setOnPlaybackStatusUpdate(sound, (status: any) => {
           if (status && status.didJustFinish) {
-            setPlayingId(null);
             soundRef.current = null;
             setWaveState('idle');
           }
         });
+      } else {
+        setWaveState('idle');
       }
     } catch (error) {
       console.error('TTS Error:', error);
-      setPlayingId(null);
+      soundRef.current = null;
       setWaveState('idle');
     }
   }
@@ -121,6 +211,19 @@ export function ChatScreen() {
 
   function startVoiceCall() {
     setShowVoiceCall(true);
+  }
+
+  async function speakLatestAssistantMessage() {
+    if (!latestAssistantMessage) {
+      return;
+    }
+
+    const textToSpeak =
+      typeof latestAssistantMessage.text === 'string'
+        ? latestAssistantMessage.text
+        : JSON.stringify(latestAssistantMessage.text);
+
+    await playTTS(textToSpeak);
   }
 
   return (
@@ -155,9 +258,7 @@ export function ChatScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <ChatBubble 
-            message={item} 
-            onPlay={item.role === 'assistant' && item.id !== messages[messages.length - 1]?.id ? () => playTTS(item.text, item.id) : undefined}
-            isPlaying={playingId === item.id} 
+            message={item}
           />
         )}
         contentContainerStyle={styles.messageList}
@@ -179,11 +280,30 @@ export function ChatScreen() {
 
       {/* Input Controls - ALWAYS VISIBLE */}
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={styles.controlsWrapper}>
           <View style={styles.controls}>
+            {displaySuggestions.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.suggestionList}
+              >
+                {displaySuggestions.map((prompt) => (
+                  <TouchableOpacity
+                    key={prompt}
+                    onPress={() => handleSuggestionPress(prompt)}
+                    style={styles.suggestionChip}
+                    activeOpacity={0.75}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.suggestionText}>{prompt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
             <View style={styles.inputRow}>
               {/* Send Button */}
               <TouchableOpacity 
@@ -221,16 +341,17 @@ export function ChatScreen() {
               {/* Voice Recorder */}
               <VoiceRecorder onFinished={handleVoiceRecording} />
               
-              {/* Volume Toggle */}
+              {/* Speak Latest Response */}
               <TouchableOpacity 
-                onPress={() => setAutoPlay((p) => !p)} 
+                onPress={speakLatestAssistantMessage} 
                 style={styles.iconBtn}
-                activeOpacity={0.7}
+                activeOpacity={canSpeak ? 0.7 : 1}
+                disabled={!canSpeak}
               >
                 <MaterialIcons 
-                  name={autoPlay ? 'volume-up' : 'volume-off'} 
+                  name="volume-up" 
                   size={24} 
-                  color={autoPlay ? colors.primary : colors.textLight} 
+                  color={canSpeak ? colors.primary : colors.textLight} 
                 />
               </TouchableOpacity>
             </View>
@@ -290,11 +411,12 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   messageArea: {
-    flex: 1
+    flex: 1,
+    backgroundColor: '#FAFBFC'
   },
   messageList: {
-    padding: 16,
-    paddingBottom: 16
+    padding: 20,
+    paddingBottom: 20
   },
   loadingContainer: {
     flexDirection: 'row-reverse',
@@ -348,42 +470,63 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 10,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0
+    paddingBottom: Platform.OS === 'ios' ? 100 : 120
   },
   controls: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === 'android' ? 12 : 0
+    paddingVertical: 16,
+    paddingBottom: 0
+  },
+  suggestionList: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingBottom: 16
+  },
+  suggestionChip: {
+    backgroundColor: '#EEF7F4',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 124, 102, 0.2)',
+    marginLeft: 10
+  },
+  suggestionText: {
+    fontFamily: 'Tajawal_700Bold',
+    color: colors.primary,
+    fontSize: 14,
+    textAlign: 'right'
   },
   inputRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 10
+    gap: 12
   },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 24,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 26,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     textAlign: 'right',
     fontFamily: 'Tajawal_400Regular',
     fontSize: 16,
     maxHeight: 120,
-    minHeight: 50,
-    borderWidth: 2,
-    borderColor: '#E5E7EB'
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    color: '#1F2937'
   },
   sendBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 5
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6
   },
   sendBtnDisabled: {
     opacity: 0.5,
@@ -396,13 +539,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   iconBtn: {
-    width: 50,
-    height: 50,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 25,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
+    borderRadius: 26,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
     borderColor: '#E5E7EB'
   }
 });

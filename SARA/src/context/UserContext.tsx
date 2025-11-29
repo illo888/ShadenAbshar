@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { ScenarioType } from '../utils/saudiId';
 
-interface UserData {
+export interface UserData {
   saudiId: string;
   scenario: ScenarioType;
   name: string;

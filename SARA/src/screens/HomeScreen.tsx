@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { mockUserData } from '../constants/mockData';
 import { colors } from '../constants/colors';
@@ -10,11 +10,52 @@ import { useNavigation } from '@react-navigation/native';
 import { User } from '../types';
 import { AIWave } from '../components/AIWave';
 import { AnimatedButton } from '../components/AnimatedButton';
+import { useOtp } from '../context/OtpContext';
 
 export function HomeScreen() {
   const navigation = useNavigation();
   const user: User = mockUserData;
   const scrollY = new Animated.Value(0);
+  const { enabled: otpEnabled, messages: otpMessages } = useOtp();
+
+  const activeServices = useMemo(() => user.services.filter((s) => s.status === 'نشط'), [user.services]);
+  const activeServiceNames = activeServices.slice(0, 2).map((service) => service.nameAr).join(' • ');
+  const notificationsPreview = user.notifications[0]?.titleAr ?? 'ما فيه تنبيهات جديدة';
+
+  const quickStats = [
+    {
+      key: 'services',
+      title: 'الخدمات الجاهزة',
+      value: activeServices.length,
+      subtitle: activeServiceNames || 'لا توجد خدمات مفعّلة حالياً',
+      gradient: [colors.primary, '#0A6B58'] as [string, string],
+  icon: 'check-circle' as const,
+      chip: 'منصة أبشر',
+      onPress: () => navigation.navigate('Services' as never)
+    },
+    {
+      key: 'alerts',
+      title: 'التنبيهات الحرجة',
+      value: user.notifications.length,
+      subtitle: notificationsPreview,
+      gradient: ['#F59E0B', '#EA580C'] as [string, string],
+      icon: 'notifications-active' as const,
+      chip: user.notifications.length > 0 ? 'مطلوب متابعة' : 'كل شيء تحت السيطرة',
+      onPress: () => navigation.navigate('Profile' as never)
+    },
+    {
+      key: 'otp',
+      title: 'رموز OTP الجديدة',
+      value: otpEnabled ? otpMessages.length : 0,
+      subtitle: otpEnabled
+        ? `آخر رمز من ${otpMessages[0]?.sender || 'البنوك السعودية'}`
+        : 'فعّل البوابة الآمنة لتستقبل الأكواد فوراً',
+      gradient: ['#2563EB', '#1D4ED8'] as [string, string],
+      icon: 'password' as const,
+      chip: otpEnabled ? 'متوفرة لحظياً' : 'يتطلب تفعيل',
+      onPress: () => navigation.navigate('SafeGate' as never)
+    }
+  ];
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -66,40 +107,40 @@ export function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.statsContainer}>
-          <TouchableOpacity 
-            style={styles.statCard}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('Services' as never)}
-          >
-            <LinearGradient
-              colors={[colors.primary, '#0A6B58']}
-              style={styles.statGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsContainer}
+        >
+          {quickStats.map((stat) => (
+            <TouchableOpacity
+              key={stat.key}
+              style={styles.statCard}
+              activeOpacity={0.8}
+              onPress={stat.onPress}
             >
-              <MaterialIcons name="widgets" size={24} color="#fff" />
-              <Text style={styles.statTitle}>الخدمات النشطة</Text>
-              <Text style={styles.statNumber}>{user.services.filter(s => s.status === 'نشط').length}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.statCard}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={['#FFB800', '#FFA000']}
-              style={styles.statGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <MaterialIcons name="notifications" size={24} color="#fff" />
-              <Text style={styles.statTitle}>التنبيهات</Text>
-              <Text style={styles.statNumber}>{user.notifications.length}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              <LinearGradient
+                colors={stat.gradient}
+                style={styles.statGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.statHeaderRow}>
+                  <MaterialIcons name={stat.icon} size={24} color="#fff" />
+                  <View style={styles.statValueWrapper}>
+                    <Text style={styles.statNumber}>{stat.value}</Text>
+                    <Text style={styles.statTitle}>{stat.title}</Text>
+                  </View>
+                </View>
+                <Text style={styles.statSubtitle} numberOfLines={2}>{stat.subtitle}</Text>
+                <View style={styles.statChip}>
+                  <Text style={styles.statChipText}>{stat.chip}</Text>
+                  <MaterialIcons name="bolt" size={14} color="#0D7C66" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         <View style={styles.servicesSection}>
           <View style={styles.sectionHeader}>
@@ -187,14 +228,13 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20
+    paddingBottom: 20,
+    flexDirection: 'row-reverse'
   },
   statCard: {
-    flex: 1,
-    marginHorizontal: 6,
-    borderRadius: 16,
+    width: 240,
+    marginLeft: 12,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -204,6 +244,8 @@ const styles = StyleSheet.create({
   },
   statGradient: {
     padding: 20,
+    height: 180,
+    justifyContent: 'space-between',
     alignItems: 'flex-end'
   },
   statTitle: {
@@ -218,6 +260,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 4,
     fontFamily: 'Tajawal_700Bold'
+  },
+  statHeaderRow: {
+    width: '100%',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  statValueWrapper: {
+    alignItems: 'flex-end'
+  },
+  statSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    fontFamily: 'Tajawal_400Regular',
+    textAlign: 'right',
+    marginTop: 12,
+    lineHeight: 20
+  },
+  statChip: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    alignSelf: 'flex-end'
+  },
+  statChipText: {
+    fontSize: 12,
+    fontFamily: 'Tajawal_700Bold',
+    color: '#0D7C66',
+    marginLeft: 6
   },
   servicesSection: {
     paddingHorizontal: 16

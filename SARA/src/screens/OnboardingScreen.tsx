@@ -93,7 +93,7 @@ export function OnboardingScreen() {
 
         {/* Demo IDs for quick testing */}
         <View style={styles.demoSection}>
-          <Text style={styles.demoTitle}>🎮 معرفات تجريبية للاختبار</Text>
+          <Text style={styles.demoTitle}>معرفات تجريبية للاختبار</Text>
           
           <View style={styles.demoGrid}>
             <TouchableOpacity 

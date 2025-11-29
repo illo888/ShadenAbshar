@@ -4,9 +4,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants/colors';
 import { Message } from '../types';
+import { MarkdownText } from './MarkdownText';
 
 export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Message; onPlay?: () => void; isPlaying?: boolean }) => {
   const isUser = message.role === 'user';
+  const content = typeof message.text === 'string' ? message.text : JSON.stringify(message.text);
   return (
     <View style={[styles.wrapper, isUser ? styles.userWrapper : styles.aiWrapper]}>
       {isUser ? (
@@ -16,9 +18,7 @@ export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Me
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <Text style={[styles.text, styles.userText]}>
-            {typeof message.text === 'string' ? message.text : JSON.stringify(message.text)}
-          </Text>
+          <MarkdownText content={content} variant="user" />
         </LinearGradient>
       ) : (
         <View style={[styles.container, styles.aiBubble]}>
@@ -28,9 +28,7 @@ export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Me
             </View>
             <Text style={styles.aiName}>سارا</Text>
           </View>
-          <Text style={[styles.text, styles.aiText]}>
-            {typeof message.text === 'string' ? message.text : JSON.stringify(message.text)}
-          </Text>
+          <MarkdownText content={content} variant="assistant" />
           {onPlay && (
             <TouchableOpacity 
               style={styles.playBtn} 
@@ -52,8 +50,8 @@ export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Me
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginVertical: 6,
-    maxWidth: '80%'
+    marginVertical: 8,
+    maxWidth: '85%'
   },
   userWrapper: {
     alignSelf: 'flex-start'
@@ -62,56 +60,46 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end'
   },
   container: {
-    padding: 14,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4
   },
   userBubble: {
-    borderBottomLeftRadius: 4
+    borderBottomLeftRadius: 6
   },
   aiBubble: {
     backgroundColor: '#FFFFFF',
-    borderBottomRightRadius: 4
+    borderBottomRightRadius: 6,
+    borderWidth: 1,
+    borderColor: '#F0F0F0'
   },
   aiHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: 10
   },
   aiAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#E8F8F3',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 6
+    marginLeft: 8
   },
   aiName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Tajawal_700Bold',
     color: colors.primary
   },
-  text: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontFamily: 'Tajawal_400Regular'
-  },
-  userText: {
-    color: '#FFFFFF',
-    textAlign: 'right'
-  },
-  aiText: {
-    color: colors.text,
-    textAlign: 'right'
-  },
   playBtn: {
-    marginTop: 10,
-    alignSelf: 'flex-start'
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    padding: 4
   }
 });

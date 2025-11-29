@@ -5,6 +5,7 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { UserProvider } from './src/context/UserContext';
+import { OtpProvider } from './src/context/OtpContext';
 import { useFonts, Tajawal_400Regular, Tajawal_700Bold } from '@expo-google-fonts/tajawal';
 
 // Enable RTL layout for Arabic (stay passive in dev)
@@ -35,9 +36,11 @@ export default function App() {
 
   return (
     <UserProvider>
-      <NavigationContainer>
-        <AppNavigator />
-      </NavigationContainer>
+      <OtpProvider>
+        <NavigationContainer>
+          <AppNavigator />
+        </NavigationContainer>
+      </OtpProvider>
     </UserProvider>
   );
 }

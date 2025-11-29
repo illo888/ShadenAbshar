@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,10 @@ import { transcribeAudio } from '../services/groqWhisper';
 import { sendMessageToGroq } from '../services/groqAPI';
 import { convertTextToSpeech } from '../services/voiceTTS';
 import audioAdapter from '../services/audioAdapter';
+import { useUser } from '../context/UserContext';
+import { buildAssistantContext } from '../constants/assistantProfiles';
+import { useOtp } from '../context/OtpContext';
+import * as FileSystem from 'expo-file-system/legacy';
 
 interface VoiceCallScreenProps {
   visible: boolean;
@@ -18,6 +22,26 @@ interface VoiceCallScreenProps {
 type CallState = 'connecting' | 'listening' | 'processing' | 'speaking' | 'ended';
 
 export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
+  const { userData } = useUser();
+  const assistantProfile = useMemo(() => buildAssistantContext(userData), [userData]);
+  const assistantContext = assistantProfile.context;
+  const voiceGreeting = assistantProfile.voiceGreeting;
+  const { enabled: otpEnabled, messages: otpMessages } = useOtp();
+  const otpContext = useMemo(() => {
+    if (!otpEnabled || otpMessages.length === 0) return '';
+    const lines = otpMessages.slice(0, 5).map((msg, index) => {
+      const label = index === 0 ? 'الأحدث' : `رمز ${index + 1}`;
+      return `${label}: ${msg.code} من ${msg.sender} للغرض ${msg.purpose} (الوقت: ${msg.time})`;
+    });
+    return `سجل OTP الحالي:
+${lines.join('\n')}
+
+اذا طلب المستخدم الرمز اثناء المكالمة فأعطه الرقم الأحدث بصوت واضح مع ذكر الجهة والغرض.`;
+  }, [otpEnabled, otpMessages]);
+  const combinedContext = useMemo(() => {
+    if (!otpContext) return assistantContext;
+    return `${assistantContext}\n\n${otpContext}`;
+  }, [assistantContext, otpContext]);
   const [callState, setCallState] = useState<CallState>('connecting');
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -30,6 +54,7 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
   const recordingRef = useRef<any>(null);
   const soundRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const historyRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
   useEffect(() => {
     if (visible) {
@@ -90,20 +115,36 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
   async function startCall() {
     try {
       setCallState('connecting');
-      setTranscript(['مرحباً! أنا سارا. كيف يمكنني مساعدتك؟']);
+      const welcomeMsg = voiceGreeting || 'حياك! انا سارة. كيف اقدر اساعدك؟';
+      setTranscript([`سارا: ${welcomeMsg}`]);
+      historyRef.current = [{ role: 'assistant', content: welcomeMsg }];
 
       // Simulate connection delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Speak welcome message
       setCallState('speaking');
-      await convertTextToSpeech('مرحباً! أنا سارا. كيف يمكنني مساعدتك؟');
+      console.log('🔊 Playing welcome message...');
+      try {
+        const sound = await convertTextToSpeech(welcomeMsg);
+        if (sound) {
+          soundRef.current = sound;
+          console.log('✅ Welcome message played successfully');
+          // Wait for sound to finish
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        } else {
+          console.warn('⚠️ No sound returned from TTS');
+        }
+      } catch (ttsError) {
+        console.error('❌ TTS Error:', ttsError);
+      }
 
       // Start listening
+      console.log('🎤 Starting to listen...');
       setCallState('listening');
       await startListening();
     } catch (error) {
-      console.error('Start call error:', error);
+      console.error('❌ Start call error:', error);
       Alert.alert('خطأ في المكالمة', 'عذراً، حدث خطأ أثناء بدء المكالمة');
       endCall();
     }
@@ -117,9 +158,13 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
       setCallState('listening');
 
       // Request permissions
+      console.log('🔐 Requesting microphone permission...');
       const permission = await audioAdapter.requestRecordingPermissions();
+      console.log('🔐 Permission status:', permission.status);
+      
       if (permission.status !== 'granted') {
-        Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الميكروفون');
+        Alert.alert('إذن مطلوب', 'يرجى السماح بالوصول إلى الميكروفون للمكالمات الصوتية');
+        setCallState('ended');
         return;
       }
 
@@ -131,33 +176,23 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
       });
 
       // Create and start recording
-      recordingRef.current = audioAdapter.createRecording();
-      if (!recordingRef.current) {
-        throw new Error('Failed to create recording');
-      }
-
-      await recordingRef.current.prepareToRecordAsync({
-        isMeteringEnabled: true,
-        android: {
-          extension: '.m4a',
-          outputFormat: 2,
-          audioEncoder: 3,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: 'mpeg4aac',
-          audioQuality: 127,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false
+      let recordingOptions;
+      try {
+        recordingRef.current = audioAdapter.createRecording();
+        if (!recordingRef.current) {
+          console.error('❌ Recording instance is null');
+          throw new Error('Failed to create recording instance');
         }
-      });
+        console.log('✅ Recording instance created successfully');
+
+        recordingOptions = audioAdapter.getRecordingOptions();
+        console.log('🎛️ Recording options selected:', recordingOptions ? 'preset' : 'fallback');
+
+        await recordingRef.current.prepareToRecordAsync(recordingOptions);
+      } catch (createError) {
+        console.error('❌ Create recording failed:', createError);
+        throw createError;
+      }
 
       await recordingRef.current.startAsync();
 
@@ -175,38 +210,113 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
   }
 
   async function stopListening() {
-    if (!recordingRef.current || !isRecording) return;
+    if (!recordingRef.current || !isRecording) {
+      console.log('⚠️ No recording to stop');
+      return;
+    }
 
     try {
+      console.log('⏹️ Stopping recording...');
       setIsRecording(false);
       setCallState('processing');
 
-      await recordingRef.current.stopAndUnloadAsync();
-      const uri = recordingRef.current.getURI();
+      const recordingInstance = recordingRef.current;
+
+      await recordingInstance.stopAndUnloadAsync();
+      const uri = recordingInstance.getURI();
+      recordingRef.current = null;
 
       if (!uri) {
         throw new Error('No recording URI');
       }
 
+      console.log('📝 Recording URI:', uri);
+
+      // Give the file a moment to flush to disk
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+  const fileInfo = await FileSystem.getInfoAsync(uri);
+  const fileSize = fileInfo.exists && 'size' in fileInfo && typeof fileInfo.size === 'number' ? fileInfo.size : 0;
+
+  if (!fileInfo.exists || fileSize < 800) {
+        console.warn('⚠️ Recording file empty or too small:', fileInfo);
+        try {
+          await FileSystem.deleteAsync(uri, { idempotent: true });
+        } catch (deleteErr) {
+          console.warn('Failed to delete tiny recording file', deleteErr);
+        }
+
+        setTranscript((prev) => [...prev, 'سارا: ما سمعت أي صوت، حاول تتكلم مرة ثانية.']);
+        setCallState('listening');
+        if (visible) {
+          await startListening();
+        }
+        return;
+      }
+
       // Transcribe audio
+      console.log('🎤 Transcribing audio...');
       const transcribedText = await transcribeAudio(uri);
+      console.log('✅ Transcription:', transcribedText);
+
+      if (!transcribedText || !transcribedText.trim()) {
+        setTranscript((prev) => [...prev, 'سارا: ما طلع أي نص من الصوت، خلنا نحاول مرة ثانية.']);
+        setCallState('listening');
+        if (visible) {
+          await startListening();
+        }
+        return;
+      }
+
       setTranscript((prev) => [...prev, `أنت: ${transcribedText}`]);
 
+      try {
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+      } catch (deleteErr) {
+        console.warn('Failed to delete recording after transcription', deleteErr);
+      }
+
       // Get AI response
-      const aiResponse = await sendMessageToGroq(transcribedText);
+      console.log('🤖 Getting AI response...');
+      historyRef.current.push({ role: 'user', content: transcribedText });
+
+      const aiResponse = await sendMessageToGroq(transcribedText, {
+        context: combinedContext,
+        history: historyRef.current.slice(-6)
+      });
+      console.log('✅ AI Response:', aiResponse);
       setTranscript((prev) => [...prev, `سارا: ${aiResponse}`]);
+      historyRef.current.push({ role: 'assistant', content: aiResponse });
 
       // Speak response
       setCallState('speaking');
-      await convertTextToSpeech(aiResponse);
+      console.log('🔊 Speaking response...');
+      try {
+        const sound = await convertTextToSpeech(aiResponse);
+        if (sound) {
+          soundRef.current = sound;
+          console.log('✅ Response played successfully');
+          // Wait for sound to finish (estimate based on text length)
+          const duration = Math.min(aiResponse.length * 100, 10000);
+          await new Promise((resolve) => setTimeout(resolve, duration));
+        }
+      } catch (ttsError) {
+        console.error('❌ TTS Error during response:', ttsError);
+      }
 
       // Continue listening
+      console.log('🔄 Continuing to listen...');
       setCallState('listening');
-      await startListening();
+      if (visible) {
+        await startListening();
+      }
     } catch (error) {
-      console.error('Stop listening error:', error);
+      console.error('❌ Stop listening error:', error);
+      setTranscript((prev) => [...prev, 'سارا: صار خطأ بالتسجيل، خلنا نحاول من جديد.']);
       setCallState('listening');
-      Alert.alert('خطأ', 'عذراً، حدث خطأ في معالجة الصوت');
+      if (visible) {
+        await startListening();
+      }
     }
   }
 
@@ -237,6 +347,7 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
       } catch (e) {
         console.warn('Cleanup recording error:', e);
       }
+      recordingRef.current = null;
     }
     if (soundRef.current) {
       try {
@@ -251,6 +362,7 @@ export function VoiceCallScreen({ visible, onClose }: VoiceCallScreenProps) {
     setCallDuration(0);
     setTranscript([]);
     setIsRecording(false);
+    historyRef.current = [];
   }
 
   function formatDuration(seconds: number): string {
