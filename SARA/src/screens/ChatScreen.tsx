@@ -10,11 +10,77 @@ import { sendMessageToGroq } from '../services/groqAPI';
 import { convertTextToSpeech } from '../services/voiceTTS';
 import { MaterialIcons } from '@expo/vector-icons';
 import audioAdapter from '../services/audioAdapter';
-import { Message } from '../types';
+import { CTAAction, Message } from '../types';
 import { AIWave } from '../components/AIWave';
 import { useUser } from '../context/UserContext';
 import { buildAssistantContext } from '../constants/assistantProfiles';
 import { useOtp } from '../context/OtpContext';
+import { CTAIntent, executeSaimaltorAction } from '../services/saimaltorAPI';
+
+const CTA_BLOCK_REGEX = /```cta[\s\S]*?```/i;
+
+function extractAssistantPayload(raw: string): { text: string; ctas: CTAAction[] } {
+  if (!raw || typeof raw !== 'string') {
+    return { text: '', ctas: [] };
+  }
+
+  let working = raw;
+  let ctas: CTAAction[] = [];
+
+  const match = raw.match(/```cta([\s\S]*?)```/i);
+  if (match) {
+    let block = match[1]?.trim() ?? '';
+    if (block) {
+      block = block.replace(/^(json|JSON)/, '').trim();
+      try {
+        const parsed = JSON.parse(block);
+        const parsedCtas = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.ctas)
+          ? parsed.ctas
+          : [];
+
+        if (Array.isArray(parsedCtas)) {
+          const stamp = Date.now().toString(36);
+          ctas = parsedCtas
+            .map((cta: any, index) => {
+              const label = typeof cta?.label === 'string' ? cta.label.trim() : '';
+              const action = typeof cta?.action === 'string' ? cta.action.trim() : '';
+              if (!label && !action) return null;
+              return {
+                id: `${stamp}-${index}`,
+                label: label || action,
+                action: action || label,
+                variant: cta?.variant === 'primary' ? 'primary' : 'secondary'
+              } as CTAAction;
+            })
+            .filter(Boolean) as CTAAction[];
+        }
+      } catch (err) {
+        console.warn('Failed to parse CTA block from assistant response', err);
+      }
+    }
+    working = working.replace(CTA_BLOCK_REGEX, '').trim();
+  }
+
+  return { text: working.trim(), ctas };
+}
+
+function hydrateCTAIntents(intents?: CTAIntent[]): CTAAction[] | undefined {
+  if (!intents || intents.length === 0) return undefined;
+  const stamp = Date.now().toString(36);
+  return intents
+    .map((intent, idx) => {
+      if (!intent?.label || !intent?.action) return null;
+      return {
+        id: `${stamp}-svc-${idx}`,
+        label: intent.label,
+        action: intent.action,
+        variant: intent.variant === 'primary' ? 'primary' : 'secondary'
+      } as CTAAction;
+    })
+    .filter(Boolean) as CTAAction[];
+}
 
 export function ChatScreen() {
   const { userData } = useUser();
@@ -51,6 +117,7 @@ ${lines.join('\n')}
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [ctaProcessing, setCtaProcessing] = useState<string | null>(null);
   const [waveState, setWaveState] = useState<'idle' | 'welcoming' | 'answering' | 'thinking' | 'listening'>('idle');
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const flatRef = useRef<any>(null);
@@ -127,7 +194,13 @@ ${lines.join('\n')}
         history: historySource
       });
       setWaveState('answering');
-      const aiMsg: Message = { id: Date.now() + 1, role: 'assistant', text: reply };
+      const parsedReply = extractAssistantPayload(reply);
+      const aiMsg: Message = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        text: parsedReply.text,
+        ctas: parsedReply.ctas
+      };
       setMessages((m) => [aiMsg, ...m]);
 
       setTimeout(() => setWaveState('idle'), 1500);
@@ -155,6 +228,42 @@ ${lines.join('\n')}
   function handleSuggestionPress(prompt: string) {
     if (isLoading) return;
     handleUserMessage(prompt);
+  }
+
+  async function handleCTAAction(action: string) {
+    if (!action) return;
+
+    if (action.startsWith('saimaltor:')) {
+      if (ctaProcessing) return;
+      setCtaProcessing(action);
+      setWaveState('thinking');
+      try {
+        const result = await executeSaimaltorAction(action, { user: userData });
+        setWaveState('answering');
+        const serviceMsg: Message = {
+          id: Date.now(),
+          role: 'assistant',
+          text: result.message,
+          ctas: hydrateCTAIntents(result.ctas)
+        };
+        setMessages((m) => [serviceMsg, ...m]);
+      } catch (error) {
+        console.error('Saimaltor action failed', error);
+        const failMsg: Message = {
+          id: Date.now(),
+          role: 'assistant',
+          text: 'تعذر تنفيذ الخدمة في Saimaltor الحين، حاول بعد لحظات أو اطلب خدمة ثانية.'
+        };
+        setMessages((m) => [failMsg, ...m]);
+      } finally {
+        setCtaProcessing(null);
+        setTimeout(() => setWaveState('idle'), 1000);
+      }
+      return;
+    }
+
+    if (isLoading) return;
+    await handleUserMessage(action);
   }
 
   async function playTTS(textToPlay: string) {
@@ -259,6 +368,7 @@ ${lines.join('\n')}
         renderItem={({ item }) => (
           <ChatBubble 
             message={item}
+            onCTAPress={item.role === 'assistant' ? handleCTAAction : undefined}
           />
         )}
         contentContainerStyle={styles.messageList}

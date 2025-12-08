@@ -6,7 +6,14 @@ import { colors } from '../constants/colors';
 import { Message } from '../types';
 import { MarkdownText } from './MarkdownText';
 
-export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Message; onPlay?: () => void; isPlaying?: boolean }) => {
+interface ChatBubbleProps {
+  message: Message;
+  onPlay?: () => void;
+  isPlaying?: boolean;
+  onCTAPress?: (action: string) => void;
+}
+
+export const ChatBubble = ({ message, onPlay, isPlaying = false, onCTAPress }: ChatBubbleProps) => {
   const isUser = message.role === 'user';
   const content = typeof message.text === 'string' ? message.text : JSON.stringify(message.text);
   return (
@@ -29,6 +36,22 @@ export const ChatBubble = ({ message, onPlay, isPlaying = false }: { message: Me
             <Text style={styles.aiName}>سارا</Text>
           </View>
           <MarkdownText content={content} variant="assistant" />
+          {message.ctas && message.ctas.length > 0 && (
+            <View style={styles.ctaRow}>
+              {message.ctas.map((cta) => (
+                <TouchableOpacity
+                  key={cta.id}
+                  style={[styles.ctaButton, cta.variant === 'primary' ? styles.ctaPrimary : styles.ctaSecondary]}
+                  activeOpacity={0.8}
+                  onPress={() => onCTAPress && onCTAPress(cta.action)}
+                >
+                  <Text style={[styles.ctaLabel, cta.variant === 'primary' ? styles.ctaLabelPrimary : styles.ctaLabelSecondary]}>
+                    {cta.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
           {onPlay && (
             <TouchableOpacity 
               style={styles.playBtn} 
@@ -101,5 +124,40 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignSelf: 'flex-start',
     padding: 4
+  },
+  ctaRow: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    marginHorizontal: -4
+  },
+  ctaButton: {
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    marginHorizontal: 4,
+    marginBottom: 8
+  },
+  ctaPrimary: {
+    backgroundColor: '#0D7C66',
+    borderColor: '#0D7C66'
+  },
+  ctaSecondary: {
+    backgroundColor: '#EEF7F4',
+    borderColor: 'rgba(13,124,102,0.25)'
+  },
+  ctaLabel: {
+    fontFamily: 'Tajawal_700Bold',
+    fontSize: 14
+  },
+  ctaLabelPrimary: {
+    color: '#FFFFFF'
+  },
+  ctaLabelSecondary: {
+    color: colors.primary
   }
 });

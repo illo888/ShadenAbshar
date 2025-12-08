@@ -28,8 +28,16 @@ export interface User {
 
 export type Role = 'user' | 'assistant' | 'system';
 
+export interface CTAAction {
+  id: string;
+  label: string;
+  action: string;
+  variant: 'primary' | 'secondary';
+}
+
 export interface Message {
   id: number;
   role: Role;
   text: string;
+  ctas?: CTAAction[];
 }
