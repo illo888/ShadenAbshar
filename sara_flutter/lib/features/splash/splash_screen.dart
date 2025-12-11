@@ -20,8 +20,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _navigateToNext() async {
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
-      // Navigate directly to chat for now (skip onboarding)
-      context.go('/chat');
+      // Navigate to home screen after splash
+      context.go('/home');
     }
   }
 

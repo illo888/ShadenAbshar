@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/home/home_screen.dart';
 import '../../features/chat/chat_screen.dart';
+import '../../features/services/services_screen.dart';
 import '../../features/safe_gate/safe_gate_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/voice_call/voice_call_screen.dart';
@@ -28,8 +30,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/safe-gate',
-                builder: (context, state) => const SafeGateScreen(),
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
               ),
             ],
           ),
@@ -44,12 +46,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: '/services',
+                builder: (context, state) => const ServicesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/safe-gate',
+        builder: (context, state) => const SafeGateScreen(),
       ),
       GoRoute(
         path: '/voice-call',
@@ -81,14 +95,19 @@ class ScaffoldWithNavBar extends StatelessWidget {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.vpn_lock_outlined),
-            selectedIcon: Icon(Icons.vpn_lock),
-            label: 'البوابة الآمنة',
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'الرئيسية',
           ),
           NavigationDestination(
             icon: Icon(Icons.smart_toy_outlined),
             selectedIcon: Icon(Icons.smart_toy),
             label: 'سارا',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.list_alt_outlined),
+            selectedIcon: Icon(Icons.list_alt),
+            label: 'الخدمات',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
