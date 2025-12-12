@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/ai_service_manager.dart';
@@ -71,13 +72,22 @@ Future<bool> saraServerHealthy(SaraServerHealthyRef ref) async {
 
 /// Provider for current service status color (green/orange/red)
 @riverpod
-ServiceStatusColor serviceStatusColor(ServiceStatusColorRef ref) {
+Color serviceStatusColor(ServiceStatusColorRef ref) {
   final statusAsync = ref.watch(serverHealthNotifierProvider);
   
   return statusAsync.when(
-    data: (status) => status.statusColor,
-    loading: () => ServiceStatusColor.orange,
-    error: (_, __) => ServiceStatusColor.red,
+    data: (status) {
+      switch (status.statusColor) {
+        case ServiceStatusColor.green:
+          return Colors.green;
+        case ServiceStatusColor.orange:
+          return Colors.orange;
+        case ServiceStatusColor.red:
+          return Colors.red;
+      }
+    },
+    loading: () => Colors.orange,
+    error: (_, __) => Colors.red,
   );
 }
 

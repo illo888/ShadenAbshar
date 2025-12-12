@@ -287,13 +287,13 @@ class SaraVoiceService {
       
       // Step 3: Generate audio using Groq TTS
       debugPrint('🔊 Generating audio with Groq TTS...');
-      final audioPath = await _groqFallback.generateSpeech(
+      final responseAudioPath = await _groqFallback.generateSpeech(
         text: aiResponse.text,
       );
       
       // Step 4: Play audio response
       debugPrint('🔊 Playing audio response...');
-      await _playAudioFile(audioPath);
+      await _playAudioFile(responseAudioPath);
       
       _isSaraResponding = false;
       onSaraRespondingChange?.call(false);

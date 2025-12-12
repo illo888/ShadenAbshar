@@ -45,26 +45,25 @@ final saraServerHealthyProvider = AutoDisposeFutureProvider<bool>.internal(
 // ignore: unused_element
 typedef SaraServerHealthyRef = AutoDisposeFutureProviderRef<bool>;
 String _$serviceStatusColorHash() =>
-    r'f093296cbcd3dc163c04169d0a81de926f27827b';
+    r'8e622f774a36a69065a8f6ca93d55d678f269abd';
 
 /// Provider for current service status color (green/orange/red)
 ///
 /// Copied from [serviceStatusColor].
 @ProviderFor(serviceStatusColor)
-final serviceStatusColorProvider =
-    AutoDisposeProvider<ServiceStatusColor>.internal(
-      serviceStatusColor,
-      name: r'serviceStatusColorProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$serviceStatusColorHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+final serviceStatusColorProvider = AutoDisposeProvider<Color>.internal(
+  serviceStatusColor,
+  name: r'serviceStatusColorProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$serviceStatusColorHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef ServiceStatusColorRef = AutoDisposeProviderRef<ServiceStatusColor>;
+typedef ServiceStatusColorRef = AutoDisposeProviderRef<Color>;
 String _$serviceStatusTextHash() => r'9f097c349b488fadec06e97d963d507e171fba4c';
 
 /// Provider for status text in Arabic

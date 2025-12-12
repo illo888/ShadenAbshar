@@ -1,6 +1,6 @@
 import 'package:logger/logger.dart';
 import 'sara_server_service.dart';
-import 'groq_chat_service.dart';
+import 'groq_service.dart';
 
 /// Which AI service was used for the response
 enum AiServiceUsed {
@@ -27,7 +27,7 @@ class AiResponse {
 /// Manages AI services with SARA-first, Groq-fallback strategy
 class AiServiceManager {
   final SaraServerService _saraService;
-  final GroqChatService _groqService;
+  final GroqService _groqService;
   final Logger _logger;
 
   bool _saraAvailable = true;
@@ -35,14 +35,17 @@ class AiServiceManager {
 
   AiServiceManager({
     SaraServerService? saraService,
-    GroqChatService? groqService,
+    GroqService? groqService,
     Logger? logger,
   })  : _saraService = saraService ?? SaraServerService(),
-        _groqService = groqService ?? GroqChatService(),
+        _groqService = groqService ?? GroqService(),
         _logger = logger ?? Logger();
 
   /// Send a message with automatic SARA → Groq fallback
-  Future<AiResponse> sendMessage(String message, {String? scenario}) async {
+  Future<AiResponse> sendMessage({
+    required String message,
+    bool useNajdi = false,
+  }) async {
     final startTime = DateTime.now();
 
     // Check if we should skip SARA (if it failed recently)
@@ -101,7 +104,6 @@ class AiServiceManager {
       
       final response = await _groqService.sendMessage(
         message: message,
-        useNajdi: true,
       );
 
       final duration = DateTime.now().difference(startTime).inMilliseconds;

@@ -1,4 +1,4 @@
-import '../config/constants.dart';
+import '../../config/constants.dart';
 
 /// Validate Saudi ID (must be 10 digits starting with 1)
 bool validateSaudiId(String id) {

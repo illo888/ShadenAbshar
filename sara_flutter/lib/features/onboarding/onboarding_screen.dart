@@ -109,30 +109,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     context.go('/guest-help');
   }
 
-  Widget _buildTestUserCard(TestUser user) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: ListTile(
-        dense: true,
-        title: Text(
-          user.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        subtitle: Text(
-          '${user.saudiId}\n${user.description}',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Icon(
-          _getScenarioIcon(user.scenario),
-          color: AppColors.primary,
-        ),
-        onTap: () {
-          _idController.text = user.saudiId;
-        },
-      ),
-    );
-  }
-
   Widget _buildDemoCard({
     required String label,
     required String id,
