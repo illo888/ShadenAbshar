@@ -73,7 +73,10 @@ class HomeScreen extends StatelessWidget {
               child: Container(
                 height: 200,
                 alignment: Alignment.center,
-                child: const AIWave(size: 220),
+                child: const AIWave(
+                  state: WaveState.idle,
+                  size: 220,
+                ),
               ),
             ),
 

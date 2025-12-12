@@ -2,17 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/message_model.dart';
 import '../services/groq_service.dart';
 import '../services/saimaltor_service.dart';
+import '../services/ai_service_manager.dart';
 import 'user_provider.dart';
 
 class ChatNotifier extends StateNotifier<List<MessageModel>> {
   final Ref ref;
   final GroqService _groqService;
   final SaimaltorService _saimaltorService;
+  final AiServiceManager _aiManager;
   int _messageIdCounter = 0;
 
   ChatNotifier(this.ref)
       : _groqService = GroqService(),
         _saimaltorService = SaimaltorService(),
+        _aiManager = AiServiceManager(),
         super([]);
 
   // Add message directly without API call (for voice responses)
@@ -20,7 +23,7 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
     state = [...state, message];
   }
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(String text, {bool useNajdi = false}) async {
     // Add user message
     final userMessage = MessageModel(
       id: _messageIdCounter++,
@@ -34,20 +37,31 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       // Get user context
       final user = ref.read(userProvider);
       
-      // Call Groq API
-      final response = await _groqService.sendMessage(
+      // Call SARA Server (with Groq fallback)
+      final aiResponse = await _aiManager.sendMessage(
         message: text,
-        history: state,
+        useNajdi: useNajdi,
       );
 
       // Parse CTAs from response
-      final parsedMessage = _parseMessageCTAs(response);
+      final parsedMessage = _parseMessageCTAs(aiResponse.text);
+      
+      // Add suggested actions from SARA if available
+      final ctas = parsedMessage.ctas ?? 
+        (aiResponse.suggestedActions != null 
+          ? aiResponse.suggestedActions!.map((action) => CTAAction(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              label: action,
+              action: action,
+              variant: 'primary',
+            )).toList()
+          : null);
       
       final assistantMessage = MessageModel(
         id: _messageIdCounter++,
         role: 'assistant',
         text: parsedMessage.text,
-        ctas: parsedMessage.ctas,
+        ctas: ctas,
       );
       
       state = [...state, assistantMessage];

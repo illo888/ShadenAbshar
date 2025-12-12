@@ -4,6 +4,7 @@ import '../../config/theme/colors.dart';
 import '../../core/models/message_model.dart';
 import '../../core/providers/chat_provider.dart';
 import '../../core/providers/user_provider.dart';
+import '../../core/providers/server_health_provider.dart';
 import '../../core/services/sara_voice_service.dart';
 import '../../widgets/ai_wave.dart';
 import '../../widgets/chat_bubble.dart';
@@ -210,31 +211,76 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'سارة',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'متصلة',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.normal,
-                    ),
-                  ),
-                ],
+            Expanded(
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final statusColor = ref.watch(serviceStatusColorProvider);
+                  final statusText = ref.watch(serviceStatusTextProvider);
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'سارة',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: statusColor,
+                                fontWeight: FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
         actions: [
+          // Server Status Refresh Button
+          Consumer(
+            builder: (context, ref, child) {
+              return IconButton(
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 20,
+                ),
+                color: AppColors.textSecondary,
+                onPressed: () {
+                  ref.read(serverHealthNotifierProvider.notifier).refresh();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('جاري تحديث حالة الخادم...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+                tooltip: 'تحديث حالة الخادم',
+              );
+            },
+          ),
           // Voice Call Button
           IconButton(
             icon: const Icon(

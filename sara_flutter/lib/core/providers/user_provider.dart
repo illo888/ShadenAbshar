@@ -13,9 +13,14 @@ class UserNotifier extends StateNotifier<UserModel?> {
       state = UserModel(
         saudiId: state!.saudiId,
         name: state!.name,
+        nameEn: state!.nameEn,
+        birthDate: state!.birthDate,
+        nationality: state!.nationality,
         city: state!.city,
         phone: state!.phone,
         scenario: scenario,
+        services: state!.services,
+        notifications: state!.notifications,
       );
     }
   }

@@ -89,6 +89,14 @@ class _GuestHelpScreenState extends State<GuestHelpScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
+                    // Back button
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
                     Text(
                       'مساعدة محدودة للزوار',
                       style: GoogleFonts.tajawal(

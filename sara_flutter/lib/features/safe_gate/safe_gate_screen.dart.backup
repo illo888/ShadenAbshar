@@ -202,27 +202,21 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Future.delayed(Duration.zero, () {
-                makeCall(SaudiEmergencyNumbers.general);
-              });
+              makeCall(SaudiEmergencyNumbers.general);
             },
             child: const Text('الطوارئ العامة (112)'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Future.delayed(Duration.zero, () {
-                makeCall(SaudiEmergencyNumbers.safeGateSupport);
-              });
+              makeCall(SaudiEmergencyNumbers.safeGateSupport);
             },
             child: const Text('دعم البوابة الآمنة'),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              Future.delayed(Duration.zero, () {
-                makeCall(SaudiEmergencyNumbers.police);
-              });
+              makeCall(SaudiEmergencyNumbers.police);
             },
             child: const Text('الشرطة (999)'),
           ),
@@ -293,7 +287,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
             pinned: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -455,6 +449,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
 
   Widget _buildFeatureRow(IconData icon, String text) {
     return Row(
+      textDirection: TextDirection.rtl,
       children: [
         Icon(icon, size: 22, color: AppColors.primary),
         const SizedBox(width: 8),
@@ -486,6 +481,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          textDirection: TextDirection.rtl,
           children: [
             Icon(icon, size: 20, color: Colors.white),
             const SizedBox(width: 8),
@@ -511,6 +507,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
         border: Border.all(color: const Color(0xFFFCA5A5)),
       ),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           const Icon(Icons.phone_in_talk, size: 18, color: Color(0xFF991B1B)),
           const SizedBox(width: 8),
@@ -566,6 +563,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
               children: [
                 Icon(Icons.star, size: 14, color: Colors.white),
                 SizedBox(width: 4),
@@ -585,6 +583,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
           // Price
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            textDirection: TextDirection.rtl,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
@@ -664,6 +663,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                textDirection: TextDirection.rtl,
                 children: [
                   Icon(Icons.lock, size: 20, color: Colors.white),
                   SizedBox(width: 8),
@@ -686,6 +686,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
           // Trust indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            textDirection: TextDirection.rtl,
             children: [
               _buildTrustItem(Icons.verified_user, 'دفع آمن 🔒'),
               Container(
@@ -707,6 +708,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
+              textDirection: TextDirection.rtl,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline, size: 16, color: Colors.grey.shade600),
@@ -734,6 +736,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           const Icon(Icons.check_circle, size: 20, color: Color(0xFF10B981)),
           const SizedBox(width: 10),
@@ -751,6 +754,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
 
   Widget _buildTrustItem(IconData icon, String text) {
     return Row(
+      textDirection: TextDirection.rtl,
       children: [
         Icon(icon, size: 16, color: Colors.grey.shade600),
         const SizedBox(width: 4),
@@ -768,6 +772,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
   Widget _buildSocialProof() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
+      textDirection: TextDirection.rtl,
       children: [
         // Avatar stack
         SizedBox(
@@ -844,9 +849,11 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
         children: [
           // Header
           Row(
+            textDirection: TextDirection.rtl,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
+                textDirection: TextDirection.rtl,
                 children: [
                   Text(msg.senderIcon, style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 8),
@@ -890,6 +897,7 @@ class _SafeGateScreenState extends ConsumerState<SafeGateScreen> {
               border: Border.all(color: const Color(0xFFD1FAE5)),
             ),
             child: Row(
+              textDirection: TextDirection.rtl,
               children: [
                 const Text(
                   'رمز التحقق:',

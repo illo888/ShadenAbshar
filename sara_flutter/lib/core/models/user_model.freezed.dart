@@ -23,9 +23,16 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) {
 mixin _$UserModel {
   String get saudiId => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
+  String? get nameEn => throw _privateConstructorUsedError;
+  String get birthDate => throw _privateConstructorUsedError;
+  String get nationality => throw _privateConstructorUsedError;
   String get city => throw _privateConstructorUsedError;
-  String get phone => throw _privateConstructorUsedError;
-  String get scenario => throw _privateConstructorUsedError;
+  String? get phone => throw _privateConstructorUsedError;
+  String get scenario =>
+      throw _privateConstructorUsedError; // safe_gate, in_saudi, elder, guest
+  List<ServiceModel> get services => throw _privateConstructorUsedError;
+  List<NotificationModel> get notifications =>
+      throw _privateConstructorUsedError;
 
   /// Serializes this UserModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -45,9 +52,14 @@ abstract class $UserModelCopyWith<$Res> {
   $Res call({
     String saudiId,
     String name,
+    String? nameEn,
+    String birthDate,
+    String nationality,
     String city,
-    String phone,
+    String? phone,
     String scenario,
+    List<ServiceModel> services,
+    List<NotificationModel> notifications,
   });
 }
 
@@ -68,9 +80,14 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
   $Res call({
     Object? saudiId = null,
     Object? name = null,
+    Object? nameEn = freezed,
+    Object? birthDate = null,
+    Object? nationality = null,
     Object? city = null,
-    Object? phone = null,
+    Object? phone = freezed,
     Object? scenario = null,
+    Object? services = null,
+    Object? notifications = null,
   }) {
     return _then(
       _value.copyWith(
@@ -82,18 +99,38 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
                 ? _value.name
                 : name // ignore: cast_nullable_to_non_nullable
                       as String,
+            nameEn: freezed == nameEn
+                ? _value.nameEn
+                : nameEn // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            birthDate: null == birthDate
+                ? _value.birthDate
+                : birthDate // ignore: cast_nullable_to_non_nullable
+                      as String,
+            nationality: null == nationality
+                ? _value.nationality
+                : nationality // ignore: cast_nullable_to_non_nullable
+                      as String,
             city: null == city
                 ? _value.city
                 : city // ignore: cast_nullable_to_non_nullable
                       as String,
-            phone: null == phone
+            phone: freezed == phone
                 ? _value.phone
                 : phone // ignore: cast_nullable_to_non_nullable
-                      as String,
+                      as String?,
             scenario: null == scenario
                 ? _value.scenario
                 : scenario // ignore: cast_nullable_to_non_nullable
                       as String,
+            services: null == services
+                ? _value.services
+                : services // ignore: cast_nullable_to_non_nullable
+                      as List<ServiceModel>,
+            notifications: null == notifications
+                ? _value.notifications
+                : notifications // ignore: cast_nullable_to_non_nullable
+                      as List<NotificationModel>,
           )
           as $Val,
     );
@@ -112,9 +149,14 @@ abstract class _$$UserModelImplCopyWith<$Res>
   $Res call({
     String saudiId,
     String name,
+    String? nameEn,
+    String birthDate,
+    String nationality,
     String city,
-    String phone,
+    String? phone,
     String scenario,
+    List<ServiceModel> services,
+    List<NotificationModel> notifications,
   });
 }
 
@@ -134,9 +176,14 @@ class __$$UserModelImplCopyWithImpl<$Res>
   $Res call({
     Object? saudiId = null,
     Object? name = null,
+    Object? nameEn = freezed,
+    Object? birthDate = null,
+    Object? nationality = null,
     Object? city = null,
-    Object? phone = null,
+    Object? phone = freezed,
     Object? scenario = null,
+    Object? services = null,
+    Object? notifications = null,
   }) {
     return _then(
       _$UserModelImpl(
@@ -148,18 +195,38 @@ class __$$UserModelImplCopyWithImpl<$Res>
             ? _value.name
             : name // ignore: cast_nullable_to_non_nullable
                   as String,
+        nameEn: freezed == nameEn
+            ? _value.nameEn
+            : nameEn // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        birthDate: null == birthDate
+            ? _value.birthDate
+            : birthDate // ignore: cast_nullable_to_non_nullable
+                  as String,
+        nationality: null == nationality
+            ? _value.nationality
+            : nationality // ignore: cast_nullable_to_non_nullable
+                  as String,
         city: null == city
             ? _value.city
             : city // ignore: cast_nullable_to_non_nullable
                   as String,
-        phone: null == phone
+        phone: freezed == phone
             ? _value.phone
             : phone // ignore: cast_nullable_to_non_nullable
-                  as String,
+                  as String?,
         scenario: null == scenario
             ? _value.scenario
             : scenario // ignore: cast_nullable_to_non_nullable
                   as String,
+        services: null == services
+            ? _value._services
+            : services // ignore: cast_nullable_to_non_nullable
+                  as List<ServiceModel>,
+        notifications: null == notifications
+            ? _value._notifications
+            : notifications // ignore: cast_nullable_to_non_nullable
+                  as List<NotificationModel>,
       ),
     );
   }
@@ -171,10 +238,16 @@ class _$UserModelImpl implements _UserModel {
   const _$UserModelImpl({
     required this.saudiId,
     required this.name,
+    this.nameEn,
+    required this.birthDate,
+    required this.nationality,
     required this.city,
-    required this.phone,
+    this.phone,
     required this.scenario,
-  });
+    final List<ServiceModel> services = const [],
+    final List<NotificationModel> notifications = const [],
+  }) : _services = services,
+       _notifications = notifications;
 
   factory _$UserModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserModelImplFromJson(json);
@@ -184,15 +257,40 @@ class _$UserModelImpl implements _UserModel {
   @override
   final String name;
   @override
+  final String? nameEn;
+  @override
+  final String birthDate;
+  @override
+  final String nationality;
+  @override
   final String city;
   @override
-  final String phone;
+  final String? phone;
   @override
   final String scenario;
+  // safe_gate, in_saudi, elder, guest
+  final List<ServiceModel> _services;
+  // safe_gate, in_saudi, elder, guest
+  @override
+  @JsonKey()
+  List<ServiceModel> get services {
+    if (_services is EqualUnmodifiableListView) return _services;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_services);
+  }
+
+  final List<NotificationModel> _notifications;
+  @override
+  @JsonKey()
+  List<NotificationModel> get notifications {
+    if (_notifications is EqualUnmodifiableListView) return _notifications;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_notifications);
+  }
 
   @override
   String toString() {
-    return 'UserModel(saudiId: $saudiId, name: $name, city: $city, phone: $phone, scenario: $scenario)';
+    return 'UserModel(saudiId: $saudiId, name: $name, nameEn: $nameEn, birthDate: $birthDate, nationality: $nationality, city: $city, phone: $phone, scenario: $scenario, services: $services, notifications: $notifications)';
   }
 
   @override
@@ -202,16 +300,37 @@ class _$UserModelImpl implements _UserModel {
             other is _$UserModelImpl &&
             (identical(other.saudiId, saudiId) || other.saudiId == saudiId) &&
             (identical(other.name, name) || other.name == name) &&
+            (identical(other.nameEn, nameEn) || other.nameEn == nameEn) &&
+            (identical(other.birthDate, birthDate) ||
+                other.birthDate == birthDate) &&
+            (identical(other.nationality, nationality) ||
+                other.nationality == nationality) &&
             (identical(other.city, city) || other.city == city) &&
             (identical(other.phone, phone) || other.phone == phone) &&
             (identical(other.scenario, scenario) ||
-                other.scenario == scenario));
+                other.scenario == scenario) &&
+            const DeepCollectionEquality().equals(other._services, _services) &&
+            const DeepCollectionEquality().equals(
+              other._notifications,
+              _notifications,
+            ));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, saudiId, name, city, phone, scenario);
+  int get hashCode => Object.hash(
+    runtimeType,
+    saudiId,
+    name,
+    nameEn,
+    birthDate,
+    nationality,
+    city,
+    phone,
+    scenario,
+    const DeepCollectionEquality().hash(_services),
+    const DeepCollectionEquality().hash(_notifications),
+  );
 
   /// Create a copy of UserModel
   /// with the given fields replaced by the non-null parameter values.
@@ -231,9 +350,14 @@ abstract class _UserModel implements UserModel {
   const factory _UserModel({
     required final String saudiId,
     required final String name,
+    final String? nameEn,
+    required final String birthDate,
+    required final String nationality,
     required final String city,
-    required final String phone,
+    final String? phone,
     required final String scenario,
+    final List<ServiceModel> services,
+    final List<NotificationModel> notifications,
   }) = _$UserModelImpl;
 
   factory _UserModel.fromJson(Map<String, dynamic> json) =
@@ -244,11 +368,21 @@ abstract class _UserModel implements UserModel {
   @override
   String get name;
   @override
+  String? get nameEn;
+  @override
+  String get birthDate;
+  @override
+  String get nationality;
+  @override
   String get city;
   @override
-  String get phone;
+  String? get phone;
   @override
-  String get scenario;
+  String get scenario; // safe_gate, in_saudi, elder, guest
+  @override
+  List<ServiceModel> get services;
+  @override
+  List<NotificationModel> get notifications;
 
   /// Create a copy of UserModel
   /// with the given fields replaced by the non-null parameter values.

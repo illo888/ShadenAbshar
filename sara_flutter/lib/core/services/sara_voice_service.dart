@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'groq_fallback_service.dart';
 import 'groq_whisper_service.dart';
+import 'ai_service_manager.dart';
 
 class SaraVoiceService {
   static const String wsUrl = 'ws://134.209.234.124:8000/ws/voice';
@@ -16,6 +18,7 @@ class SaraVoiceService {
   final AudioPlayer _player = AudioPlayer();
   final GroqFallbackService _groqFallback = GroqFallbackService();
   final GroqWhisperService _whisperService = GroqWhisperService();
+  final AiServiceManager _aiManager = AiServiceManager();
   
   bool _useFallback = false;
   Timer? _connectionTimeout;
@@ -250,13 +253,13 @@ class SaraVoiceService {
     }
   }
   
-  /// Handle fallback response using Groq (Whisper + Chat + TTS)
+  /// Handle fallback response using SARA Server → Groq fallback (Whisper + Chat + TTS)
   Future<void> _handleFallbackResponse(String audioPath) async {
     try {
       _isSaraResponding = true;
       onSaraRespondingChange?.call(true);
       
-      // Step 1: Transcribe audio using Groq Whisper
+      // Step 1: Transcribe audio using Groq Whisper (STT)
       debugPrint('🎤 Transcribing audio with Whisper...');
       final transcribedText = await _whisperService.transcribeAudio(audioPath);
       
@@ -272,21 +275,25 @@ class SaraVoiceService {
       debugPrint('✅ Transcription: $transcribedText');
       onUserSpoke?.call(transcribedText);
       
-      // Step 2: Generate response using Groq Chat + TTS
-      debugPrint('🤖 Generating AI response...');
-      final response = await _groqFallback.generateResponse(
+      // Step 2: Generate response using SARA Server (with Groq fallback)
+      debugPrint('🤖 Generating AI response (SARA → Groq fallback)...');
+      final aiResponse = await _aiManager.sendMessage(
         message: transcribedText,
-        generateAudio: true,
+        useNajdi: false, // Voice uses standard Arabic
       );
       
-      debugPrint('✅ AI Response: ${response.text}');
-      onSaraResponded?.call(response.text);
+      debugPrint('✅ AI Response from ${aiResponse.serviceUsed}: ${aiResponse.text}');
+      onSaraResponded?.call(aiResponse.text);
       
-      // Step 3: Play audio response
-      if (response.audioPath != null) {
-        debugPrint('🔊 Playing audio response...');
-        await _playAudioFile(response.audioPath!);
-      }
+      // Step 3: Generate audio using Groq TTS
+      debugPrint('🔊 Generating audio with Groq TTS...');
+      final audioPath = await _groqFallback.generateSpeech(
+        text: aiResponse.text,
+      );
+      
+      // Step 4: Play audio response
+      debugPrint('🔊 Playing audio response...');
+      await _playAudioFile(audioPath);
       
       _isSaraResponding = false;
       onSaraRespondingChange?.call(false);
